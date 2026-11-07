@@ -457,12 +457,12 @@ function detail(s){
     s.exercises.forEach(e=>{
       const d=el('div','rule'),record=sessionRecords.find(r=>r.name===e.name),heading=el('div','detail-heading');
       heading.append(el('h3','',e.name),loadBadge(e));
-      if(record)heading.append(el('span','record-badge','REKOR'));
+      if(record)heading.append(el('span','record-badge'+(record.type==='reps'?' reps-record':''),recordLabel(record)));
       d.append(heading);
       e.sets.forEach(x=>{
         const line=el('p','numeric note');
-        line.append(el('span',record?.best===x?'gold-text':'',setText(x,true)));
-        if(record?.best===x)line.append(el('span','muted',' · önceki '+fmt(record.previous)+' kg'));
+        line.append(el('span',record?.set===x?'gold-text':'',setText(x,true)));
+        if(record?.set===x)line.append(el('span','muted',' · '+recordPrevious(record)));
         d.append(line);
       });
       if(e.note)d.append(el('p','muted note',e.note));
@@ -631,9 +631,28 @@ function colored(n,day){const d=dayStyle(day);n.style.setProperty('--day',d.colo
 function ratingText(r){return [['energy','Enerji'],['pump','Pump'],['sleep','Uyku']].map(([k,l])=>l+': '+(r[k]??'—')).join(' · ');}
 function duration(s){if(!s.started_at)return '';const n=(new Date(s.finished_at||Date.now())-new Date(s.started_at))/60000;return Number.isFinite(n)?Math.max(0,Math.floor(n))+' dk':'';}
 function setDelta(s,old){if(!old)return '';if(s.kg!=null&&old.kg!=null&&s.kg>old.kg)return '+'+fmt(s.kg-old.kg)+' kg';if(s.kg===old.kg&&s.reps>old.reps)return '+'+fmt(s.reps-old.reps)+' tekrar';return '';}
+// Record comparisons use completed, dated history from the same training day.
+const RECORD_KG_TOLERANCE=.01;
+const recordSetValid=s=>Number.isFinite(s.kg)&&Number.isFinite(s.reps);
+const sameRecordKg=(a,b)=>Math.abs(a-b)<=RECORD_KG_TOLERANCE+1e-9;
+function recordLabel(r){return r.type==='reps'?'TEKRAR REKORU':'REKOR';}
+function recordPrevious(r){return 'önceki '+(r.type==='reps'?setText(r.previous):fmt(r.previous)+' kg');}
 function records(s){
-  const earlier=sorted().filter(x=>x.id!==s.id&&(x.date<s.date||(x.date===s.date&&(x.finished_at||'')<(s.finished_at||''))));
-  return s.exercises.flatMap(e=>{const best=bestSet(e),old=earlier.flatMap(x=>x.exercises.filter(y=>y.name===e.name).flatMap(y=>y.sets)).filter(x=>x.kg!=null);const previous=old.length?Math.max(...old.map(x=>x.kg)):null;return best&&previous!==null&&best.kg>previous?[{name:e.name,best,previous,s}]:[];});
+  const earlier=state.sessions.filter(x=>x.id!==s.id&&x.day===s.day&&(x.date<s.date||(x.date===s.date&&(x.finished_at||'')<(s.finished_at||''))));
+  return s.exercises.flatMap(e=>{
+    const sets=e.sets.filter(recordSetValid).sort((a,b)=>b.kg-a.kg||b.reps-a.reps);
+    const old=earlier.flatMap(x=>x.exercises.filter(y=>y.name===e.name).flatMap(y=>y.sets)).filter(recordSetValid);
+    if(!sets.length||!old.length)return [];
+    const previous=Math.max(...old.map(x=>x.kg)),set=sets[0];
+    if(set.kg-previous>RECORD_KG_TOLERANCE+1e-9)return [{name:e.name,type:'weight',set,previous}];
+    for(const candidate of sets){
+      const atWeight=old.filter(x=>sameRecordKg(x.kg,candidate.kg));
+      if(!atWeight.length)continue;
+      const reps=Math.max(...atWeight.map(x=>x.reps));
+      if(candidate.reps>reps)return [{name:e.name,type:'reps',set:candidate,previous:{kg:candidate.kg,reps}}];
+    }
+    return [];
+  });
 }
 function metricCards(items){const n=el('div','metrics');for(const [value,label]of items){const c=el('div'),number=el('strong','number');number.append(value instanceof Node?value:document.createTextNode(value));c.append(number,el('small','',label));n.append(c);}return n;}
 
@@ -669,7 +688,7 @@ function render(){
 }
 
 function historyRow(s,parent){
-  const b=btn('',()=>detail(s),'history-item row'),text=el('div','grow'),head=el('div','row'),name=el('strong','',dayName(s.day)),rs=records(s);if(rs.length)name.append(el('span','record-label','REKOR'));
+  const b=btn('',()=>detail(s),'history-item row'),text=el('div','grow'),head=el('div','row'),name=el('strong','',dayName(s.day)),rs=records(s);if(rs.length)name.append(el('span','record-label'+(rs.every(r=>r.type==='reps')?' reps-record':''),rs.some(r=>r.type==='weight')?'REKOR':'TEKRAR REKORU'));
   head.append(name,el('span','history-date'+(s.date_estimated?' muted':''),s.date_estimated?date(s,true):weekday(s)+' '+date(s,true)));
   const tops=s.exercises.map(e=>({e,t:bestSet(e)})).filter(x=>x.t).sort((a,b)=>b.t.kg-a.t.kg).slice(0,2);text.append(head,el('small','block',counts(s)+' set · '+tops.map(x=>x.e.name+' '+setText(x.t)).join(' · ')));b.append(badge(s.day),text);parent.append(b);
 }
@@ -684,7 +703,7 @@ function homeView(m){
   const dateRow=el('div','date-control home-date'),picker=datePicker(state.date,v=>{state.date=v;render();},'start-date');dateRow.append(btn('Tarih: '+(state.date===today()?'Bugün':date({date:state.date},true))+' ▾',picker.open),picker.input);m.append(dateRow);
   const days=el('div','days other-days');order.filter(d=>d!==next).forEach(d=>days.append(colored(btn(dayName(d),()=>startSafely(d),'day-button'),d)));m.append(days);
   if(!Object.values(state.program.days).some(a=>a.length))m.append(el('p','empty','Programın boş. Program ekranından hareket ekle veya JSON geçmişini içe aktar.'));
-  const recent=el('section','records');recent.append(el('h2','eyebrow','SON REKORLAR'));const cutoff=new Date(today()+'T00:00:00');cutoff.setDate(cutoff.getDate()-30);const rs=sorted().filter(s=>new Date(s.date+'T00:00:00')>=cutoff&&s.date<=today()).flatMap(records).slice(0,3);rs.forEach(x=>{const row=el('div','row record-row'),txt=el('div','grow');txt.append(el('strong','',x.name),el('small','block',dayName(x.s.day)+' · '+date(x.s,true)+' · önceki '+fmt(x.previous)));row.append(txt,el('strong','number gold-text',setText(x.best)));recent.append(row);});if(!rs.length)recent.append(el('p','muted','Son 30 günde yeni rekor yok.'));m.append(recent);
+  const recent=el('section','records');recent.append(el('h2','eyebrow','SON REKORLAR'));const cutoff=new Date(today()+'T00:00:00');cutoff.setDate(cutoff.getDate()-30);const rs=sorted().filter(s=>new Date(s.date+'T00:00:00')>=cutoff&&s.date<=today()).flatMap(s=>records(s).map(r=>({...r,s}))).slice(0,3);rs.forEach(x=>{const row=el('div','row record-row'),txt=el('div','grow');txt.append(el('strong','',x.name),el('small','block',dayName(x.s.day)+' · '+date(x.s,true)+' · '+recordPrevious(x)+' · '+(x.type==='reps'?'Tekrar rekoru':'Kilo rekoru')));row.append(txt,el('strong','number gold-text',setText(x.set)));recent.append(row);});if(!rs.length)recent.append(el('p','muted','Son 30 günde yeni rekor yok.'));m.append(recent);
   const history=el('section','recents');history.append(el('h2','eyebrow','SON ANTRENMANLAR'));sorted().slice(0,5).forEach(s=>recentRow(s,history));m.append(history,btn('Son 4 haftanın özeti',()=>go('summary'),'outline wide'));
 }
 
@@ -708,7 +727,7 @@ function finish(){
 }
 function finishView(m){
   const w=state.draft;if(!w){m.append(el('p','empty','Kaydedilecek antrenman yok.'),btn('Ana ekran',()=>go('home'),'primary'));return;}colored(m,w.day);const s=cleanSession(w,true);m.append(metricCards([[String(counts(s)),'set'],[tonValue(volume(s)),'hacim'],[String(s.exercises.length),'hareket']]));
-  records(s).forEach(x=>{const c=el('section','record row'),t=el('div','grow');t.append(el('span','eyebrow gold-text','YENİ REKOR'),el('strong','block',x.name),el('small','','önceki en iyi '+fmt(x.previous)+' kg'));c.append(t,el('strong','number gold-text',setText(x.best)));m.append(c);});
+  records(s).forEach(x=>{const c=el('section','record row'+(x.type==='reps'?' reps-record':'')),t=el('div','grow');t.append(el('span','eyebrow gold-text',x.type==='reps'?'TEKRAR REKORU':'YENİ REKOR'),el('strong','block',x.name),el('small','',recordPrevious(x)));c.append(t,el('strong','number gold-text',setText(x.set)));m.append(c);});
   if(duration(s))m.append(el('p','muted duration','Süre: '+duration(s)));
   const ratings=el('section','ratings');ratings.append(el('h2','eyebrow','BUGÜN NASILDI?'));w.rating=w.rating||{energy:null,pump:null,sleep:null};for(const [key,label]of [['energy','Enerji'],['pump','Pump'],['sleep','Dün geceki uyku']]){const group=el('div','rating'),buttons=el('div','rating-buttons');group.append(el('strong','',label));for(let n=1;n<=5;n++){const b=btn(String(n),()=>{w.rating[key]=w.rating[key]===n?null:n;changed();render();},w.rating[key]===n?'selected':'');b.setAttribute('aria-label',label+' '+n);b.setAttribute('aria-pressed',String(w.rating[key]===n));buttons.append(b);}group.append(buttons);ratings.append(group);}ratings.append(el('p','muted','İsteğe bağlı. Boş bırakırsan da kaydedilir.'));m.append(ratings);
   const actions=el('div','finish-actions');actions.append(btn('Kaydet',()=>saveFinish('home'),'primary wide'),btn('Son 4 haftanın özetini çıkar',()=>saveFinish('summary'),'outline wide'));m.append(actions);
@@ -729,7 +748,7 @@ function summaryText(detailed=false){
   const ns=[...new Set(ss.flatMap(s=>s.exercises.map(e=>e.name)))],risers=[],stalled=[];
   for(const name of ns){const rows=ss.flatMap(s=>s.exercises.filter(e=>e.name===name).map(e=>({s,e,t:bestSet(e)}))).filter(r=>r.t);if(rows.length<2)continue;const first=rows[0].t,lastSet=rows[rows.length-1].t;if(lastSet.kg>first.kg)risers.push({text:name+'  '+setText(first,false,true)+' → '+setText(lastSet,false,true),diff:lastSet.kg-first.kg});let same=1;for(let i=rows.length-2;i>=0;i--){if(rows[i].t.kg!==lastSet.kg)break;same++;}if(same>=3){const tail=rows.slice(-same);if((lastSet.reps||0)<=(tail[0].t.reps||0))stalled.push(name+'  '+fmt(lastSet.kg)+' kg · '+same+' seanstır aynı; '+setText(tail[0].t,false,true)+' → '+setText(lastSet,false,true));}}
   lines.push('','ARTANLAR',...risers.sort((a,b)=>b.diff-a.diff).slice(0,5).map(x=>x.text));if(!risers.length)lines.push('Karşılaştırılabilir artış yok.');lines.push('','YERİNDE SAYANLAR',...(stalled.length?stalled:['En az 3 seanslık duraklama yok.']));
-  lines.push('','NOTLAR');let notes=0;for(const s of ss){for(const r of records(s)){lines.push(date(s,true)+' Rekor: '+r.name+' '+setText(r.best,false,true));notes++;}for(const text of [s.note,...s.exercises.flatMap(e=>[e.note&&e.name+': '+e.note,...e.sets.filter(x=>x.note).map(x=>e.name+': '+x.note)])].filter(Boolean)){lines.push(date(s,true)+' '+text.slice(0,140));notes++;}}if(!notes)lines.push('Dönemde rekor veya not yok.');
+  lines.push('','NOTLAR');let notes=0;for(const s of ss){for(const r of records(s)){lines.push(date(s,true)+(r.type==='reps'?' Tekrar rekoru: ':' Rekor: ')+r.name+' '+setText(r.set,false,true));notes++;}for(const text of [s.note,...s.exercises.flatMap(e=>[e.note&&e.name+': '+e.note,...e.sets.filter(x=>x.note).map(x=>e.name+': '+x.note)])].filter(Boolean)){lines.push(date(s,true)+' '+text.slice(0,140));notes++;}}if(!notes)lines.push('Dönemde rekor veya not yok.');
   const ratings=[['energy','Enerji'],['pump','Pump'],['sleep','Uyku']].flatMap(([k,l])=>{const values=ss.map(s=>s.rating?.[k]).filter(n=>n!=null);return values.length?[l+' '+fmt(values.reduce((a,b)=>a+b,0)/values.length)+'/5 ('+values.length+' seans)']:[];});if(ratings.length)lines.push('','ORTALAMA PUANLAR',ratings.join(' · '));
   if(detailed){lines.push('','TÜM SEANSLAR');for(const s of ss){lines.push('',date(s)+' '+dayName(s.day)+(duration(s)?' · '+duration(s):''));for(const e of s.exercises){lines.push(e.name+' ['+(e.load_mode==='single'?'TEK':'TOPLAM')+'] · hedef '+(e.target_reps||'serbest'),e.sets.map(x=>setText(x,true,true)).join(' · '));if(e.note)lines.push('Hareket notu: '+e.note);}if(s.note)lines.push('Seans notu: '+s.note);if(s.rating)lines.push(ratingText(s.rating));}}
   return lines.join('\n');
