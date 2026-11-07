@@ -453,10 +453,18 @@ function detail(s){
     if(s.note)p.append(el('p','note',s.note));
     if(s.rating)p.append(el('p','muted',ratingText(s.rating)));
     if(duration(s))p.append(el('p','muted',duration(s))); 
+    const sessionRecords=records(s);
     s.exercises.forEach(e=>{
-      const d=el('div','rule');
-      d.append(el('h3','',e.name),loadBadge(e));
-      e.sets.forEach(x=>d.append(el('p','numeric note',setText(x,true))));
+      const d=el('div','rule'),record=sessionRecords.find(r=>r.name===e.name),heading=el('div','detail-heading');
+      heading.append(el('h3','',e.name),loadBadge(e));
+      if(record)heading.append(el('span','record-badge','REKOR'));
+      d.append(heading);
+      e.sets.forEach(x=>{
+        const line=el('p','numeric note');
+        line.append(el('span',record?.best===x?'gold-text':'',setText(x,true)));
+        if(record?.best===x)line.append(el('span','muted',' · önceki '+fmt(record.previous)+' kg'));
+        d.append(line);
+      });
       if(e.note)d.append(el('p','muted note',e.note));
       p.append(d);
     });
@@ -719,7 +727,7 @@ function summaryText(detailed=false){
   lines.push('SON 4 HAFTA ('+date({date:startDate},true)+'–'+date({date:end},true)+')',ss.length+' seans · haftada ~'+(ss.length/4).toLocaleString('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1})+' gün · '+ss.reduce((a,s)=>a+counts(s),0)+' set');
   for(const d of state.program.order){const ds=ss.filter(s=>s.day===d);if(ds.length<=2)lines.push(dayName(d)+' sadece '+ds.length+' kez'+(ds.length?' ('+ds.map(s=>date(s,true)).join(', ')+')':''));}
   const ns=[...new Set(ss.flatMap(s=>s.exercises.map(e=>e.name)))],risers=[],stalled=[];
-  for(const name of ns){const rows=ss.flatMap(s=>s.exercises.filter(e=>e.name===name).map(e=>({s,e,t:bestSet(e)}))).filter(r=>r.t);if(rows.length<2)continue;const first=rows[0].t,lastSet=rows[rows.length-1].t;if(lastSet.kg>first.kg)risers.push({text:name+'  '+setText(first,false,true)+' → '+setText(lastSet,false,true),diff:lastSet.kg-first.kg});let same=1;for(let i=rows.length-2;i>=0;i--){if(rows[i].t.kg!==lastSet.kg)break;same++;}if(same>=3){const tail=rows.slice(-same);if(tail.slice(1).every((r,i)=>(r.t.reps||0)<=(tail[i].t.reps||0)))stalled.push(name+'  '+fmt(lastSet.kg)+' kg · '+same+' seanstır aynı; '+setText(tail[0].t,false,true)+' → '+setText(lastSet,false,true));}}
+  for(const name of ns){const rows=ss.flatMap(s=>s.exercises.filter(e=>e.name===name).map(e=>({s,e,t:bestSet(e)}))).filter(r=>r.t);if(rows.length<2)continue;const first=rows[0].t,lastSet=rows[rows.length-1].t;if(lastSet.kg>first.kg)risers.push({text:name+'  '+setText(first,false,true)+' → '+setText(lastSet,false,true),diff:lastSet.kg-first.kg});let same=1;for(let i=rows.length-2;i>=0;i--){if(rows[i].t.kg!==lastSet.kg)break;same++;}if(same>=3){const tail=rows.slice(-same);if((lastSet.reps||0)<=(tail[0].t.reps||0))stalled.push(name+'  '+fmt(lastSet.kg)+' kg · '+same+' seanstır aynı; '+setText(tail[0].t,false,true)+' → '+setText(lastSet,false,true));}}
   lines.push('','ARTANLAR',...risers.sort((a,b)=>b.diff-a.diff).slice(0,5).map(x=>x.text));if(!risers.length)lines.push('Karşılaştırılabilir artış yok.');lines.push('','YERİNDE SAYANLAR',...(stalled.length?stalled:['En az 3 seanslık duraklama yok.']));
   lines.push('','NOTLAR');let notes=0;for(const s of ss){for(const r of records(s)){lines.push(date(s,true)+' Rekor: '+r.name+' '+setText(r.best,false,true));notes++;}for(const text of [s.note,...s.exercises.flatMap(e=>[e.note&&e.name+': '+e.note,...e.sets.filter(x=>x.note).map(x=>e.name+': '+x.note)])].filter(Boolean)){lines.push(date(s,true)+' '+text.slice(0,140));notes++;}}if(!notes)lines.push('Dönemde rekor veya not yok.');
   const ratings=[['energy','Enerji'],['pump','Pump'],['sleep','Uyku']].flatMap(([k,l])=>{const values=ss.map(s=>s.rating?.[k]).filter(n=>n!=null);return values.length?[l+' '+fmt(values.reduce((a,b)=>a+b,0)/values.length)+'/5 ('+values.length+' seans)']:[];});if(ratings.length)lines.push('','ORTALAMA PUANLAR',ratings.join(' · '));

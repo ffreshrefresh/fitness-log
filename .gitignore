@@ -3,6 +3,8 @@
 design/
 CODEX_BRIEF_PWA.md
 codex_log.txt
+codex_fix_log.txt
+FIX_v1.1.md
 
 # Veri dosyaları (kişisel antrenman verisi)
 *.json

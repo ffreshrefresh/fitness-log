@@ -16,10 +16,12 @@ Alt klasör testi için bir test sunucusunda bu klasörü `/fitness-log/` yoluna
 
 ## GitHub Pages
 
+Yayın adresi: https://ffreshrefresh.github.io/fitness-log/
+
 1. GitHub'da örneğin `fitness-log` adlı bir depo oluştur.
 2. `index.html`, `app.js`, `app.css`, `sw.js`, `manifest.webmanifest`, `icons/`, `fonts/` ve bu README'yi depo köküne koy. `.codex-test/`, `design/`, brief ve kişisel JSON geçmişini yayınlama. `.codex-test/` Git tarafından yok sayılır ve test sırasında kişisel verinin kopyalarını içerebilir.
 3. Deponun **Settings → Pages → Build and deployment → Deploy from a branch** bölümünü aç.
-4. `main` ve `/ (root)` seçip kaydet. Verilen `https://kullanici.github.io/fitness-log/` adresini aç. HTTPS'nin etkin olduğunu kontrol et.
+4. `main` ve `/ (root)` seçip kaydet. Verilen `https://ffreshrefresh.github.io/fitness-log/` adresini aç. HTTPS'nin etkin olduğunu kontrol et.
 5. İndexDB verileri site adresine bağlıdır. Yerel test, başka alan adı veya Safari özel pencere verileri ayrı olabilir; taşıma için JSON yedeği kullan.
 
 ## iPhone'a kurulum
@@ -60,4 +62,4 @@ Tasarım düzeltmelerinde yedi ekran 375×812 boyutunda `design/*.dc.html` dosya
 | 8 — Mobil görünüm | 375×812 ve 430×932'de tüm route'larda yatay taşma ölçülmedi. Safe area CSS kuralları mevcut; fiziksel çentik/home indicator testi yapılmadı. |
 | 9 — Konsol | Kabul akışında JavaScript istisnası veya uygulama konsol hatası bulunmadı. JS sözdizimi kontrolleri geçti. |
 
-Yerel önizleme için testte Python HTTP sunucusu kullanıldı. `serve` ve `lighthouse` paketleri yerel npm önbelleğinde bulunmadı (`npx --offline` kontrolü); ortamın ağ kısıtları nedeniyle bu komutlarla birebir test ve Lighthouse çalıştırılamadı. GitHub'a yayın yapılmadı; yukarıdaki adımlar yayın içindir.
+Yerel önizleme için testte Python HTTP sunucusu kullanıldı. `serve` ve `lighthouse` paketleri yerel npm önbelleğinde bulunmadı (`npx --offline` kontrolü); ortamın ağ kısıtları nedeniyle bu komutlarla birebir test ve Lighthouse çalıştırılamadı. Yayın adresi: https://ffreshrefresh.github.io/fitness-log/.
