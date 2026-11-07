@@ -461,7 +461,7 @@ function detail(s){
       d.append(heading);
       e.sets.forEach(x=>{
         const line=el('p','numeric note');
-        line.append(el('span',record?.set===x?'gold-text':'',setText(x,true)));
+        line.append(el('span',record?.set===x&&record.type==='weight'?'gold-text':'',setText(x,true)));
         if(record?.set===x)line.append(el('span','muted',' · '+recordPrevious(record)));
         d.append(line);
       });
@@ -697,13 +697,13 @@ function homeView(m){
   if(state.draft){const w=state.draft,done=w.exercises.flatMap(e=>e.sets).filter(s=>s._done).length;m.append(btn('Devam eden antrenman: '+w.day+' · '+done+'/'+counts(w)+' set',()=>go('workout'),'resume wide'));}
   const monday=new Date(today()+'T00:00:00');monday.setDate(monday.getDate()-((monday.getDay()+6)%7));const sunday=new Date(monday);sunday.setDate(sunday.getDate()+7);
   const week=sorted().filter(s=>new Date(s.date+'T00:00:00')>=monday&&new Date(s.date+'T00:00:00')<sunday),completed=new Set(week.map(s=>s.day)),card=el('section','card week-card'),r=el('div','row'),count=el('strong','week-count',String(state.program.order.filter(d=>completed.has(d)).length));count.append(el('span','muted','/'+state.program.order.length));r.append(el('span','eyebrow','BU HAFTA'),count);card.append(r);
-  const bars=el('div','week-bars');for(const d of state.program.order){const c=el('div'),bar=el('div','week-bar'),done=week.find(s=>s.day===d),label=el('span',done?'':'muted',dayName(d));if(done){bar.style.background=dayStyle(d).color;label.append(el('span','week-weekday',' '+weekday(done)));}c.append(bar,label);bars.append(c);}card.append(bars,metricCards([[String(week.reduce((a,s)=>a+counts(s),0)),'çalışma seti'],[tonValue(week.reduce((a,s)=>a+volume(s),0)),'toplam hacim'],[String(week.flatMap(records).length),'yeni rekor']]));m.append(card);
+  const bars=el('div','week-bars');for(const d of state.program.order){const c=el('div'),bar=el('div','week-bar'),done=week.find(s=>s.day===d),label=el('span',done?'':'muted',dayName(d));if(done){bar.style.background=dayStyle(d).color;label.append(el('span','week-weekday',' '+weekday(done)));}c.append(bar,label);bars.append(c);}card.append(bars,metricCards([[String(week.reduce((a,s)=>a+counts(s),0)),'çalışma seti'],[tonValue(week.reduce((a,s)=>a+volume(s),0)),'toplam hacim'],[String(week.flatMap(records).filter(r=>r.type==='weight').length),'kilo rekoru']]));card.querySelector('.metrics>div:last-child').append(el('small','weekly-reps',week.flatMap(records).filter(r=>r.type==='reps').length+' tekrar rekoru'));m.append(card);
   const order=state.program.order,next=order[(order.indexOf(sorted()[0]?.day)+1)%order.length]||order[0];
   if(next){const lastDay=sorted().find(s=>s.day===next),list=state.program.days[next]||[],hero=colored(btn('',()=>startSafely(next),'hero'),next),hr=el('div','row');hr.append(el('span','eyebrow','SIRADAKİ'),el('small','',lastDay?'son: '+date(lastDay,true):'İlk antrenman'));const title=el('div','row hero-line'),start=el('span','start-pill','Başlat');start.append(icon('arrow'));title.append(el('strong','hero-title',next),start);hero.append(hr,title,el('span','hero-exercises',list.length+' hareket · '+list.slice(0,4).map(e=>e.name).join(' · ')+(list.length>4?'…':'')));m.append(hero);}
   const dateRow=el('div','date-control home-date'),picker=datePicker(state.date,v=>{state.date=v;render();},'start-date');dateRow.append(btn('Tarih: '+(state.date===today()?'Bugün':date({date:state.date},true))+' ▾',picker.open),picker.input);m.append(dateRow);
   const days=el('div','days other-days');order.filter(d=>d!==next).forEach(d=>days.append(colored(btn(dayName(d),()=>startSafely(d),'day-button'),d)));m.append(days);
   if(!Object.values(state.program.days).some(a=>a.length))m.append(el('p','empty','Programın boş. Program ekranından hareket ekle veya JSON geçmişini içe aktar.'));
-  const recent=el('section','records');recent.append(el('h2','eyebrow','SON REKORLAR'));const cutoff=new Date(today()+'T00:00:00');cutoff.setDate(cutoff.getDate()-30);const rs=sorted().filter(s=>new Date(s.date+'T00:00:00')>=cutoff&&s.date<=today()).flatMap(s=>records(s).map(r=>({...r,s}))).slice(0,3);rs.forEach(x=>{const row=el('div','row record-row'),txt=el('div','grow');txt.append(el('strong','',x.name),el('small','block',dayName(x.s.day)+' · '+date(x.s,true)+' · '+recordPrevious(x)+' · '+(x.type==='reps'?'Tekrar rekoru':'Kilo rekoru')));row.append(txt,el('strong','number gold-text',setText(x.set)));recent.append(row);});if(!rs.length)recent.append(el('p','muted','Son 30 günde yeni rekor yok.'));m.append(recent);
+  const recent=el('section','records');recent.append(el('h2','eyebrow','SON REKORLAR'));const cutoff=new Date(today()+'T00:00:00');cutoff.setDate(cutoff.getDate()-30);const rs=sorted().filter(s=>new Date(s.date+'T00:00:00')>=cutoff&&s.date<=today()).flatMap(s=>records(s).filter(r=>r.type==='weight').map(r=>({...r,s}))).slice(0,3);rs.forEach(x=>{const row=el('div','row record-row'),txt=el('div','grow');txt.append(el('strong','',x.name),el('small','block',dayName(x.s.day)+' · '+date(x.s,true)+' · '+recordPrevious(x)+' · '+'Kilo rekoru'));row.append(txt,el('strong','number gold-text',setText(x.set)));recent.append(row);});if(!rs.length)recent.append(el('p','muted','Son 30 günde yeni rekor yok.'));m.append(recent);
   const history=el('section','recents');history.append(el('h2','eyebrow','SON ANTRENMANLAR'));sorted().slice(0,5).forEach(s=>recentRow(s,history));m.append(history,btn('Son 4 haftanın özeti',()=>go('summary'),'outline wide'));
 }
 
@@ -727,7 +727,10 @@ function finish(){
 }
 function finishView(m){
   const w=state.draft;if(!w){m.append(el('p','empty','Kaydedilecek antrenman yok.'),btn('Ana ekran',()=>go('home'),'primary'));return;}colored(m,w.day);const s=cleanSession(w,true);m.append(metricCards([[String(counts(s)),'set'],[tonValue(volume(s)),'hacim'],[String(s.exercises.length),'hareket']]));
-  records(s).forEach(x=>{const c=el('section','record row'+(x.type==='reps'?' reps-record':'')),t=el('div','grow');t.append(el('span','eyebrow gold-text',x.type==='reps'?'TEKRAR REKORU':'YENİ REKOR'),el('strong','block',x.name),el('small','',recordPrevious(x)));c.append(t,el('strong','number gold-text',setText(x.set)));m.append(c);});
+  const sessionRecords=records(s);
+  sessionRecords.filter(x=>x.type==='weight').forEach(x=>{const c=el('section','record row'),t=el('div','grow');t.append(el('span','eyebrow gold-text','REKOR'),el('strong','block',x.name),el('small','',recordPrevious(x)));c.append(t,el('strong','number gold-text',setText(x.set)));m.append(c);});
+  const repsRecords=sessionRecords.filter(x=>x.type==='reps');
+  if(repsRecords.length){const list=el('section','reps-record-list');list.append(el('h2','eyebrow','TEKRAR REKORLARI'));repsRecords.forEach(x=>{const row=el('div','row reps-record-row'),t=el('div','grow');t.append(el('strong','block',x.name),el('small','muted',recordPrevious(x)));row.append(t,el('strong','number',setText(x.set)));list.append(row);});m.append(list);}
   if(duration(s))m.append(el('p','muted duration','Süre: '+duration(s)));
   const ratings=el('section','ratings');ratings.append(el('h2','eyebrow','BUGÜN NASILDI?'));w.rating=w.rating||{energy:null,pump:null,sleep:null};for(const [key,label]of [['energy','Enerji'],['pump','Pump'],['sleep','Dün geceki uyku']]){const group=el('div','rating'),buttons=el('div','rating-buttons');group.append(el('strong','',label));for(let n=1;n<=5;n++){const b=btn(String(n),()=>{w.rating[key]=w.rating[key]===n?null:n;changed();render();},w.rating[key]===n?'selected':'');b.setAttribute('aria-label',label+' '+n);b.setAttribute('aria-pressed',String(w.rating[key]===n));buttons.append(b);}group.append(buttons);ratings.append(group);}ratings.append(el('p','muted','İsteğe bağlı. Boş bırakırsan da kaydedilir.'));m.append(ratings);
   const actions=el('div','finish-actions');actions.append(btn('Kaydet',()=>saveFinish('home'),'primary wide'),btn('Son 4 haftanın özetini çıkar',()=>saveFinish('summary'),'outline wide'));m.append(actions);
@@ -852,7 +855,14 @@ function datePicker(value,onChange,id){
 
 function summaryPeriod(){const end=today(),cut=new Date(end+'T00:00:00');cut.setDate(cut.getDate()-27);const start=`${cut.getFullYear()}-${String(cut.getMonth()+1).padStart(2,'0')}-${String(cut.getDate()).padStart(2,'0')}`;return {start,end,sessions:sorted().filter(s=>s.date>=start&&s.date<=end)};}
 
-function recentRow(s,parent){const b=btn('',()=>detail(s),'recent-row row'),t=el('div','grow'),rs=records(s);t.append(el('strong','',dayName(s.day)),el('small','block',date(s,true)+' · '+counts(s)+' set · '+ton(volume(s))));b.append(badge(s.day),t,el('span',rs.length?'gold-text':'secondary-text',rs.length?rs.length+' rekor':s.exercises.length+' hareket'));parent.append(b);}
+function recentRow(s,parent){
+  const b=btn('',()=>detail(s),'recent-row row'),t=el('div','grow'),rs=records(s),weight=rs.filter(r=>r.type==='weight').length,reps=rs.filter(r=>r.type==='reps').length,totals=el('span','recent-record-counts');
+  t.append(el('strong','',dayName(s.day)),el('small','block',date(s,true)+' · '+counts(s)+' set · '+ton(volume(s))));
+  if(weight)totals.append(el('span','gold-text',weight+' rekor'));
+  if(reps)totals.append(el('span','secondary-text',reps+' tekrar'));
+  if(!rs.length)totals.append(el('span','secondary-text',s.exercises.length+' hareket'));
+  b.append(badge(s.day),t,totals);parent.append(b);
+}
 
 function exerciseDays(name){return [...new Set([...state.program.order.filter(d=>state.program.days[d].some(e=>e.name===name)),...state.sessions.filter(s=>s.exercises.some(e=>e.name===name)).map(s=>s.day)])];}
 
