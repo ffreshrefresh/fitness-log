@@ -1,0 +1,8 @@
+# Geliştirme dosyaları
+.codex-test/
+design/
+CODEX_BRIEF_PWA.md
+codex_log.txt
+
+# Veri dosyaları (kişisel antrenman verisi)
+*.json
